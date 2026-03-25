@@ -2,17 +2,25 @@
 
 A collection of Claude Code skills I've built and use personally.
 
-## What are skills?
-
-Skills are reusable prompt files for [Claude Code](https://claude.ai/code). You invoke them with `/skill-name` in the Claude Code CLI, and they expand into a full prompt that guides Claude's behavior for a specific task.
-
-Skills live in `~/.claude/skills/<skill-name>/SKILL.md`.
-
----
-
 ## Skills
 
 ### `orchestrate`
+
+## Gracefully handling rate limits on background agents with `/loop`
+
+When orchestrating long-running multi-agent tasks, rate limits can interrupt agents mid-run. The skill handles resumption via checkpoint files and requiring agents to register an agent ID to the orchestrator as soon as they begin (where possible).
+
+Use the `/loop` skill to send a resume prompt on a timer:
+
+```
+/loop 5h rate limit reset. resume all agents. 
+```
+
+This sends `"rate limit reset. resume all agents."` every 5 hours, which triggers the orchestrator to check its manifest, find any interrupted agents, and relaunch them from their last checkpoint.  
+
+Adjust the interval to match your plan's rate limit window (e.g. `/loop 3h` for API tier, `/loop 5h` for Pro).
+
+---
 
 **Evaluate a task and decide whether to run it directly or decompose it into sub-agents.**
 
@@ -32,22 +40,6 @@ Before launching any sub-agent, Claude runs this skill to decide the right execu
 - Focused question with a bounded answer
 - Quick edit or single-file generation
 - Orchestration overhead would exceed the work itself
-
----
-
-## Handling rate limits with `/loop`
-
-When orchestrating long-running multi-agent tasks, rate limits can interrupt agents mid-run. The skill handles resumption via checkpoint files — but you need something to periodically kick Claude back into action after a rate limit resets.
-
-Use the `/loop` skill to send a resume prompt on a timer:
-
-```
-/loop 5h resume all agents. rate limit reset
-```
-
-This sends `"resume all agents. rate limit reset"` every 5 hours, which triggers the orchestrator to check its manifest, find any interrupted agents, and relaunch them from their last checkpoint.
-
-Adjust the interval to match your plan's rate limit window (e.g. `/loop 3h` for API tier, `/loop 5h` for Pro).
 
 ---
 
