@@ -35,6 +35,22 @@ Before launching any sub-agent, Claude runs this skill to decide the right execu
 
 ---
 
+## Handling rate limits with `/loop`
+
+When orchestrating long-running multi-agent tasks, rate limits can interrupt agents mid-run. The skill handles resumption via checkpoint files — but you need something to periodically kick Claude back into action after a rate limit resets.
+
+Use the `/loop` skill to send a resume prompt on a timer:
+
+```
+/loop 5h resume all agents. rate limit reset
+```
+
+This sends `"resume all agents. rate limit reset"` every 5 hours, which triggers the orchestrator to check its manifest, find any interrupted agents, and relaunch them from their last checkpoint.
+
+Adjust the interval to match your plan's rate limit window (e.g. `/loop 3h` for API tier, `/loop 5h` for Pro).
+
+---
+
 ## Installation
 
 Copy the skill folder into your Claude Code skills directory:
