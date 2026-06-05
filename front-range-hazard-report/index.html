@@ -148,7 +148,7 @@
   .chip.flood{color:var(--flood);border-color:var(--flood-d)}
   .chip.drought{color:var(--drought);border-color:var(--drought-d)}
   .card .body{max-height:0;opacity:0;transition:.28s;overflow:hidden}
-  .card.open .body{max-height:520px;opacity:1;margin-top:14px}
+  .card.open .body{max-height:680px;opacity:1;margin-top:14px}
   .card .body p{font-size:15px;color:var(--muted);line-height:1.55}
   .card .data{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
   .card .data div{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--muted);
@@ -226,8 +226,8 @@
   <p class="lead">Drought is the backdrop that amplifies everything else: dry fuels feed grassfires and forest fires, and burn scars turn ordinary rain into flash floods. As of late spring 2026, the region is unusually dry.</p>
   <div class="status-grid">
     <div class="stat"><div class="n dr">~94%</div><div class="l">of Colorado in active drought (D1–D4), late May 2026 — U.S. Drought Monitor</div></div>
-    <div class="stat"><div class="n dr">Phase 2</div><div class="l">state Drought Response Plan activated Mar 16, 2026 — CO Water Conservation Board</div></div>
-    <div class="stat"><div class="n fl">18%</div><div class="l">of median snowpack (SWE) statewide, May 1 — Western Water Assessment</div></div>
+    <div class="stat"><div class="n dr">Phase 3</div><div class="l">statewide drought emergency declared early Jun 2026 (Phase 3); Phase 2 had been active since Mar 16 — Gov. of Colorado / CWCB</div></div>
+    <div class="stat"><div class="n fl">~26%</div><div class="l">of median snowpack (SWE) statewide by late May, recovering from an ~18% trough — Western Water Assessment</div></div>
     <div class="stat"><div class="n fr">~58%</div><div class="l">of Boulder County residents live in the wildland-urban interface — CU / Boulder Fire-Rescue</div></div>
   </div>
 </div></section>
@@ -316,7 +316,7 @@
     <a href="https://www.fema.gov/about/openfema/data-sets/national-risk-index-data" target="_blank">FEMA NRI — county &amp; tract data downloads<span>fema.gov/openfema</span></a>
     <a href="https://resilience-fema.hub.arcgis.com/datasets/FEMA::national-risk-index-census-tracts/explore" target="_blank">FEMA NRI — Census Tracts feature layer<span>resilience-fema.hub.arcgis.com</span></a>
     <a href="https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer" target="_blank">FEMA National Flood Hazard Layer (NFHL) — REST service<span>hazards.fema.gov/arcgis · live map layer</span></a>
-    <a href="https://apps.fs.usda.gov/fsgisx01/rest/services/RDW_Wildfire/RMRS_WRC_ConditionalRiskToPotentialStructures/ImageServer" target="_blank">USFS WRC — Risk to Potential Structures (ImageServer)<span>apps.fs.usda.gov · live raster</span></a>
+    <a href="https://apps.fs.usda.gov/fsgisx01/rest/services/RDW_Wildfire/RMRS_WRC_ConditionalRiskToPotentialStructures/ImageServer" target="_blank">USFS WRC — Conditional Risk to Potential Structures (ImageServer)<span>apps.fs.usda.gov · live raster</span></a>
     <a href="https://apps.fs.usda.gov/fsgisx01/rest/services/RDW_Wildfire/RMRS_WRC_WildfireHazardPotential/ImageServer" target="_blank">USFS WRC — Wildfire Hazard Potential (ImageServer)<span>apps.fs.usda.gov · live raster</span></a>
     <a href="https://co-pub.coloradoforestatlas.org/" target="_blank">Colorado Wildfire Risk Viewer (CO-WRAP)<span>coloradoforestatlas.org</span></a>
     <a href="https://boulder-county-cwpp-bouldercounty.hub.arcgis.com/" target="_blank">Boulder County Community Wildfire Protection Plan<span>boulder-county-cwpp.hub.arcgis.com</span></a>
@@ -427,18 +427,18 @@ const DATA=[
  {region:"surrounding",name:"Gilpin County foothills",county:"Gilpin County",level:"extreme",
   coords:[39.8600,-105.5000],hazards:["wildfire"],conf:83,
   text:"Reporting on state forestry data found Gilpin had the highest share of vulnerable homes in the region — on the order of ~95% of dwellings facing extreme fire danger. Small population, but proportionally the most fire-exposed housing on the northern Front Range.",
-  data:[["Homes at extreme risk","~95%"],["Rank","Highest share in region"],["Terrain","Forested foothills"],["Source","CSFS data"]],
-  src:"CPR (Colorado State Forest Service data)"},
+  data:[["Homes at extreme risk","~95%"],["Rank","Highest share in region"],["Terrain","Forested foothills"],["Source","Verisk via CPR"]],
+  src:"CPR / Verisk Analytics wildfire-risk data"},
 
  {region:"surrounding",name:"Jefferson County foothills",county:"Jefferson County",level:"high",
   coords:[39.6800,-105.3200],hazards:["wildfire"],conf:80,
   text:"Conifer, Evergreen, Coal Creek Canyon and similar foothill communities. State data cited Jefferson as holding the largest absolute number of dwellings in extreme fire danger — a function of dense exurban development pushed into forested terrain.",
-  data:[["Dwellings at extreme risk","Most (abs.)"],["Communities","Conifer / Evergreen"],["Pattern","Exurban forest"],["Source","CSFS data"]],
-  src:"CPR (Colorado State Forest Service data)"},
+  data:[["Dwellings at extreme risk","Most (abs.)"],["Communities","Conifer / Evergreen"],["Pattern","Exurban forest"],["Source","Verisk via CPR"]],
+  src:"CPR / Verisk Analytics wildfire-risk data"},
 
  {region:"surrounding",name:"Estes Park & Big Thompson Canyon",county:"Larimer County",level:"high",
   coords:[40.3770,-105.5210],hazards:["flood","wildfire"],conf:80,
-  text:"Hard hit in 2013 (US-34 through the Big Thompson was partially destroyed) and the canyon has a deadly flash-flood history. Compounding risk: the 2020 Cameron Peak and East Troublesome burn scars upstream raise debris-flow and flash-flood potential for years after the fires.",
+  text:"Hard hit in 2013 (more than 10 miles of US-34 through the Big Thompson was destroyed) and the canyon has a deadly flash-flood history. Compounding risk: the 2020 Cameron Peak burn scar (largest in state history) sits upstream in the watershed — with the East Troublesome scar nearby over the Divide — raising debris-flow and flash-flood potential for years after the fires.",
   data:[["1976 + 2013","Deadly canyon floods"],["US-34","Partially destroyed"],["Upstream","Cameron Peak scar"],["Hazard","Debris flow"]],
   src:"CO Encyclopedia · NOAA · DHSEM AAR"},
 
@@ -456,7 +456,7 @@ const DATA=[
 
  {region:"surrounding",name:"Eastern Weld agricultural plains",county:"Weld County",level:"elevated",
   coords:[40.4000,-104.3000],hazards:["drought"],conf:70,
-  text:"Irrigated cropland heavily reliant on surface water and the South Platte alluvial aquifer. With ~94% of the state in active drought and snowpack near 18% of median, groundwater and reservoir drawdown is the dominant 2026 stressor here; also high hail/tornado exposure.",
+  text:"Irrigated cropland heavily reliant on surface water and the South Platte alluvial aquifer. With ~94% of the state in active drought and snowpack that bottomed near a record-low ~18% of median this spring, groundwater and reservoir drawdown is the dominant 2026 stressor here; also high hail/tornado exposure.",
   data:[["State drought","~94%"],["Snowpack","~18% median"],["Stressor","Aquifer drawdown"],["Also","Hail / tornado"]],
   src:"U.S. Drought Monitor · WWA · CWCB"},
 
@@ -500,7 +500,7 @@ function imagery(){return L.esri.tiledMapLayer({
 
 function refLabels(){return L.esri.tiledMapLayer({
   url:"https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer",
-  maxZoom:19, pane:"shadowPane"});}
+  maxZoom:19, pane:"labels"});}
 
 function wildfireRPS(){return L.esri.imageMapLayer({
   url:"https://apps.fs.usda.gov/fsgisx01/rest/services/RDW_Wildfire/RMRS_WRC_ConditionalRiskToPotentialStructures/ImageServer",
@@ -547,6 +547,9 @@ function areaMarker(d){
 ---------------------------------------------------------------------------- */
 function buildMap(id,center,zoom,wildfireOn,floodOn){
   var map=L.map(id,{scrollWheelZoom:false,center:center,zoom:zoom});
+  map.createPane("labels");
+  map.getPane("labels").style.zIndex=650;
+  map.getPane("labels").style.pointerEvents="none";
   imagery().addTo(map);
   refLabels().addTo(map);
 
@@ -555,7 +558,7 @@ function buildMap(id,center,zoom,wildfireOn,floodOn){
   if(floodOn) flood.addTo(map);
 
   var overlays={
-    "Wildfire · Risk to Structures (USFS)":rps,
+    "Wildfire · Conditional Risk to Structures (USFS)":rps,
     "Wildfire · Hazard Potential (USFS)":whp,
     "Flood zones · FEMA NFHL":flood,
     "Risk Index tracts · FEMA NRI (optional)":nri
@@ -586,8 +589,9 @@ function buildFlyto(containerId,map,markers,areas){
     var b=document.createElement("button");
     b.textContent=a.label;
     b.addEventListener("click",function(){
+      var mk=markers[a.open];
+      if(mk) map.once("moveend",function(){mk.openPopup();});
       map.flyTo(a.coords,a.zoom||13,{duration:1.1});
-      var mk=markers[a.open]; if(mk) setTimeout(function(){mk.openPopup();},900);
     });
     box.appendChild(b);
   });
@@ -636,8 +640,9 @@ function wireCard(card,d){
   if(loc) loc.addEventListener("click",function(e){
     e.stopPropagation();
     document.getElementById("regional").scrollIntoView({behavior:"smooth"});
+    var mk=regMarkers[d.name];
+    if(mk) reg.once("moveend",function(){mk.openPopup();});
     reg.flyTo(d.coords,13,{duration:1.1});
-    var mk=regMarkers[d.name]; if(mk) setTimeout(function(){mk.openPopup();},1000);
   });
 }
 
@@ -690,10 +695,12 @@ COUNTIES.forEach(function(c){
   barsEl.appendChild(row);
 });
 
-/* enable scroll-zoom only after a click, so the page scrolls past maps freely */
+/* enable scroll-zoom only after a click, so the page scrolls past maps freely;
+   disable when the pointer truly leaves the map (mouseleave doesn't bubble from
+   child markers/controls the way mouseout does) */
 [ned,reg].forEach(function(m){
   m.on("click",function(){ m.scrollWheelZoom.enable(); });
-  m.on("mouseout",function(){ m.scrollWheelZoom.disable(); });
+  m.getContainer().addEventListener("mouseleave",function(){ m.scrollWheelZoom.disable(); });
 });
 </script>
 </body>
