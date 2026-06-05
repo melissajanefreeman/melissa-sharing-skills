@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nederland & Front Range — Highest-Risk Ground (Mapped)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Leaflet + Esri-Leaflet (render live government hazard layers in the reader's browser) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<style>
+  :root{
+    --bg:#14110f; --panel:#1d1915; --panel2:#241f1a;
+    --ink:#ece4d8; --muted:#9c9080; --faint:#6a6055;
+    --line:#352d26;
+    --fire:#ff8a42; --fire-d:#b8531f;
+    --flood:#6fb6dc; --flood-d:#356f8f;
+    --drought:#d4a93f; --drought-d:#8f6f1f;
+    --crit:#ff5c4d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Newsreader",Georgia,serif; font-size:17px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 64px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 64px),
+      radial-gradient(140% 90% at 80% -10%, rgba(255,138,66,.07), transparent 55%);
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .mono{font-family:"JetBrains Mono",monospace}
+  a{color:var(--flood)}
+
+  /* ---------- header ---------- */
+  header{padding:64px 0 32px;border-bottom:1px solid var(--line)}
+  .kicker{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.32em;
+    text-transform:uppercase;color:var(--fire);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .kicker::before{content:"";width:34px;height:1px;background:var(--fire);display:inline-block}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(38px,7vw,76px);
+    line-height:.96;letter-spacing:-.02em;margin:18px 0 6px}
+  h1 em{font-style:italic;color:var(--fire)}
+  .sub{color:var(--muted);font-size:clamp(17px,2vw,21px);max-width:62ch}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:26px;
+    font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--faint)}
+  .meta-row b{color:var(--ink);font-weight:500}
+
+  /* ---------- confidence banner ---------- */
+  .confidence{margin:28px 0 0;border:1px solid var(--drought-d);
+    background:linear-gradient(90deg,rgba(212,169,63,.08),transparent);
+    border-radius:3px;padding:18px 20px;display:flex;gap:16px;align-items:flex-start}
+  .confidence .tag{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--drought);border:1px solid var(--drought-d);
+    padding:5px 9px;border-radius:3px;white-space:nowrap;margin-top:2px}
+  .confidence p{font-size:15.5px;color:var(--muted);line-height:1.55}
+  .confidence b{color:var(--ink)}
+
+  /* ---------- section frame ---------- */
+  section{padding:54px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:26px}
+  .sec-num{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--fire)}
+  .sec-head h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(24px,3.4vw,34px);
+    letter-spacing:-.01em}
+  .lead{color:var(--muted);max-width:70ch;margin-bottom:6px}
+
+  /* ---------- now-status strip ---------- */
+  .status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-top:8px}
+  .stat{background:var(--panel);padding:20px 18px}
+  .stat .n{font-family:"Fraunces",serif;font-weight:900;font-size:34px;line-height:1;color:var(--ink)}
+  .stat .n.dr{color:var(--drought)} .stat .n.fr{color:var(--fire)} .stat .n.fl{color:var(--flood)}
+  .stat .l{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em;
+    color:var(--faint);margin-top:8px;line-height:1.45}
+
+  /* ---------- map ---------- */
+  .map-wrap{position:relative;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:6px}
+  .map{height:560px;width:100%;background:#0d0b09}
+  .map.short{height:460px}
+  .leaflet-container{background:#0d0b09;font-family:"JetBrains Mono",monospace}
+  .leaflet-popup-content-wrapper{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:5px;font-family:"Newsreader",serif}
+  .leaflet-popup-tip{background:var(--panel2);border:1px solid var(--line)}
+  .leaflet-popup-content{margin:14px 16px;font-size:14px;line-height:1.5}
+  .leaflet-popup-content h4{font-family:"Fraunces",serif;font-size:17px;margin-bottom:4px}
+  .leaflet-popup-content .pc{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .leaflet-popup-content .pp{color:var(--muted)}
+  .leaflet-bar a{background:var(--panel2);color:var(--ink);border-bottom-color:var(--line)}
+  .leaflet-bar a:hover{background:var(--panel)}
+  .leaflet-control-layers{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:5px;font-family:"JetBrains Mono",monospace;font-size:12px}
+  .leaflet-control-layers-toggle{background-color:var(--panel2)}
+  .leaflet-control-attribution{background:rgba(20,17,15,.8)!important;color:var(--faint)!important}
+  .leaflet-control-attribution a{color:var(--faint)!important}
+
+  .flyto{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+  .flyto button{font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.06em;
+    background:transparent;color:var(--muted);border:1px solid var(--line);padding:8px 13px;
+    border-radius:30px;cursor:pointer;transition:.18s}
+  .flyto button:hover{border-color:var(--fire);color:var(--ink)}
+
+  .maplegend{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:16px;
+    font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
+  .maplegend i{display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:7px;
+    vertical-align:middle;border:1px solid rgba(255,255,255,.18)}
+  .maplegend .dot{border-radius:50%}
+  .mapnote{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);
+    margin-top:14px;line-height:1.6;max-width:80ch}
+  .mapnote b{color:var(--muted)}
+
+  /* ---------- ranked cards ---------- */
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+  .filt{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;background:transparent;color:var(--muted);
+    border:1px solid var(--line);padding:9px 15px;border-radius:30px;cursor:pointer;transition:.18s}
+  .filt:hover{border-color:var(--faint);color:var(--ink)}
+  .filt.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .filt[data-f="wildfire"].on{background:var(--fire);border-color:var(--fire);color:#1a0d04}
+  .filt[data-f="flood"].on{background:var(--flood);border-color:var(--flood);color:#04141c}
+  .filt[data-f="drought"].on{background:var(--drought);border-color:var(--drought);color:#1a1404}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:5px;
+    padding:20px;cursor:pointer;transition:.2s;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--faint)}
+  .card.lv-extreme::before{background:var(--crit)}
+  .card.lv-high::before{background:var(--fire)}
+  .card.lv-elevated::before{background:var(--drought)}
+  .card:hover{border-color:var(--faint);transform:translateY(-2px)}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .card .rank{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);margin-bottom:4px}
+  .card h3{font-family:"Fraunces",serif;font-weight:600;font-size:21px;line-height:1.1}
+  .county{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint);margin-top:5px}
+  .sev{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;padding:4px 8px;border-radius:3px;white-space:nowrap;flex-shrink:0}
+  .sev.extreme{background:rgba(255,92,77,.14);color:var(--crit);border:1px solid rgba(255,92,77,.35)}
+  .sev.high{background:rgba(255,138,66,.13);color:var(--fire);border:1px solid rgba(255,138,66,.32)}
+  .sev.elevated{background:rgba(212,169,63,.12);color:var(--drought);border:1px solid rgba(212,169,63,.3)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 0}
+  .chip{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.05em;
+    text-transform:uppercase;padding:4px 8px;border-radius:20px;border:1px solid var(--line)}
+  .chip.wildfire{color:var(--fire);border-color:var(--fire-d)}
+  .chip.flood{color:var(--flood);border-color:var(--flood-d)}
+  .chip.drought{color:var(--drought);border-color:var(--drought-d)}
+  .card .body{max-height:0;opacity:0;transition:.28s;overflow:hidden}
+  .card.open .body{max-height:520px;opacity:1;margin-top:14px}
+  .card .body p{font-size:15px;color:var(--muted);line-height:1.55}
+  .card .data{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .card .data div{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--muted);
+    background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:7px 9px;line-height:1.4}
+  .card .data b{color:var(--ink);display:block;font-size:13px;font-family:"Fraunces",serif;font-weight:600}
+  .card .conf{display:flex;align-items:center;gap:10px;margin-top:14px;
+    padding-top:12px;border-top:1px solid var(--line)}
+  .conf-bar{flex:1;height:5px;background:var(--panel2);border-radius:3px;overflow:hidden}
+  .conf-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--drought),var(--fire))}
+  .conf-lbl{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--faint);white-space:nowrap}
+  .src{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--faint);
+    margin-top:10px;letter-spacing:.02em}
+  .locate{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--flood);
+    margin-top:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;display:inline-block}
+  .expand-hint{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--faint);
+    margin-top:12px;letter-spacing:.1em;text-transform:uppercase}
+  .card.open .expand-hint{display:none}
+
+  /* ---------- county bars ---------- */
+  .bars{display:flex;flex-direction:column;gap:14px;margin-top:10px}
+  .bar-row{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
+  .bar-row .name{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink)}
+  .bar-row .name span{display:block;color:var(--faint);font-size:10px;margin-top:2px}
+  .bar-track{height:30px;background:var(--panel);border:1px solid var(--line);
+    border-radius:3px;display:flex;overflow:hidden}
+  .bar-track i{height:100%;display:flex;align-items:center;padding-left:8px;
+    font-family:"JetBrains Mono",monospace;font-size:10px;color:#1a0d04;white-space:nowrap}
+  .seg.wildfire{background:var(--fire)} .seg.flood{background:var(--flood)} .seg.drought{background:var(--drought)}
+  .legend{display:flex;gap:20px;margin-top:20px;flex-wrap:wrap;
+    font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:middle}
+
+  /* ---------- lists ---------- */
+  .limit-list{list-style:none;display:grid;gap:14px;max-width:80ch}
+  .limit-list li{padding-left:26px;position:relative;color:var(--muted);font-size:16px}
+  .limit-list li::before{content:"▸";position:absolute;left:0;color:var(--fire)}
+  .limit-list b{color:var(--ink)}
+  .method{display:grid;gap:12px;max-width:82ch}
+  .method .step{display:grid;grid-template-columns:30px 1fr;gap:14px;align-items:start}
+  .method .step .k{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--fire);padding-top:2px}
+  .method .step p{color:var(--muted);font-size:15.5px}
+  .method .step b{color:var(--ink)}
+  .sources{columns:2;column-gap:40px;font-size:14px}
+  @media(max-width:640px){.sources{columns:1}.bar-row{grid-template-columns:110px 1fr}}
+  .sources a{color:var(--flood);text-decoration:none;display:block;margin-bottom:11px;
+    break-inside:avoid;border-bottom:1px solid transparent;transition:.15s;word-break:break-word}
+  .sources a:hover{border-bottom-color:var(--flood-d)}
+  .sources a span{display:block;font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--faint)}
+  footer{padding:40px 0 70px;color:var(--faint);font-size:13px;line-height:1.7}
+  footer b{color:var(--muted)}
+  .count{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);margin-left:auto}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <div class="kicker">Nederland &amp; the Front Range · Colorado · Mapped Hazard Synthesis</div>
+  <h1>The highest-risk ground, <em>actually mapped</em>.</h1>
+  <p class="sub">A neighborhood-and-tract read on where wildfire, flood, and drought exposure concentrates — starting in Nederland, widening to Boulder County and its neighbors — with live federal hazard layers drawn straight onto satellite imagery.</p>
+  <div class="meta-row">
+    <div>FOCUS: <b>Nederland → Boulder County → surrounding counties</b></div>
+    <div>COMPILED: <b>Jun 2026</b></div>
+    <div>HAZARDS: <b>Wildfire · Flood · Drought / Water</b></div>
+    <div>MAPS: <b>Live FEMA · USFS · ESRI services</b></div>
+  </div>
+
+  <div class="confidence">
+    <span class="tag">Confidence ≈ 78%</span>
+    <p><b>Read this as a data-anchored synthesis, not an engineered parcel model.</b> The hazard <i>shading</i> on every map below is the real thing — live raster/vector layers streamed from federal services (USFS Wildfire Risk to Communities, FEMA's National Flood Hazard Layer, FEMA's National Risk Index). The <b>ranking and the labelled neighborhood pins are my reasoned overlay on top of that data</b>: where exposure concentrates, ordered by my best read of hazard intensity, egress, fuels, and disaster history. Neighborhood outlines and historic fire perimeters are <i>hand-placed approximations</i> for orientation, not surveyed boundaries. Each card carries an honest confidence bar.</p>
+  </div>
+</div></header>
+
+<section id="now"><div class="wrap">
+  <div class="sec-head"><span class="sec-num">01</span><h2>The conditions right now</h2></div>
+  <p class="lead">Drought is the backdrop that amplifies everything else: dry fuels feed grassfires and forest fires, and burn scars turn ordinary rain into flash floods. As of late spring 2026, the region is unusually dry.</p>
+  <div class="status-grid">
+    <div class="stat"><div class="n dr">~94%</div><div class="l">of Colorado in active drought (D1–D4), late May 2026 — U.S. Drought Monitor</div></div>
+    <div class="stat"><div class="n dr">Phase 2</div><div class="l">state Drought Response Plan activated Mar 16, 2026 — CO Water Conservation Board</div></div>
+    <div class="stat"><div class="n fl">18%</div><div class="l">of median snowpack (SWE) statewide, May 1 — Western Water Assessment</div></div>
+    <div class="stat"><div class="n fr">~58%</div><div class="l">of Boulder County residents live in the wildland-urban interface — CU / Boulder Fire-Rescue</div></div>
+  </div>
+</div></section>
+
+<section id="howto"><div class="wrap">
+  <div class="sec-head"><span class="sec-num">02</span><h2>How to read these maps</h2></div>
+  <p class="lead">The maps are interactive and stream their hazard layers live from government servers, so they render with the <b>exact layers already applied</b> the moment they load. Pan, zoom, toggle layers (top-right), and click any labelled point for the detail.</p>
+  <div class="maplegend">
+    <span><i class="dot" style="background:var(--crit)"></i>Extreme-exposure neighborhood (my read)</span>
+    <span><i class="dot" style="background:var(--fire)"></i>High-exposure neighborhood</span>
+    <span><i class="dot" style="background:var(--drought)"></i>Elevated-exposure neighborhood</span>
+    <span><i style="background:rgba(255,90,60,.55)"></i>USFS wildfire risk-to-structures (raster)</span>
+    <span><i style="background:rgba(80,150,210,.55)"></i>FEMA regulated flood zone</span>
+    <span><i style="background:rgba(255,138,66,.25);border-color:var(--fire)"></i>Historic fire perimeter (approx.)</span>
+  </div>
+  <p class="mapnote"><b>Sources rendered live:</b> wildfire shading = USFS <i>Wildfire Risk to Communities — Risk to Potential Structures / Wildfire Hazard Potential</i>; flood zones = FEMA <i>National Flood Hazard Layer (NFHL)</i>; optional tract shading = FEMA <i>National Risk Index</i>; base imagery = Esri <i>World Imagery</i>. If a layer ever fails to draw, the government service is momentarily unavailable — the base map and my annotations still work, and every endpoint is listed in §08 so you can open it directly.</p>
+</div></section>
+
+<section id="nederland"><div class="wrap">
+  <div class="sec-head"><span class="sec-num">03</span><h2>Nederland, up close</h2></div>
+  <p class="lead">Nederland sits at ~8,200 ft where Middle Boulder Creek meets Barker Reservoir, ringed by dense lodgepole and the Peak-to-Peak corridor — a textbook high-consequence wildland-urban interface with limited, congested egress. The 2016 Cold Springs Fire (≈528 acres, 8 homes lost, ~2,000 evacuated) was the warning shot. The map below opens with USFS wildfire risk-to-structures shading over satellite imagery and the approximate Cold Springs perimeter; pins mark the subdivisions I read as highest-risk.</p>
+  <div class="map-wrap"><div id="map-ned" class="map"></div></div>
+  <div class="flyto" id="flyto-ned"></div>
+  <p class="mapnote"><b>Why these places.</b> The common thread is forested intermix on steep slopes with single or constrained exits — the conditions that turn a fire into a life-safety crisis. Big Springs, for example, is ~200 residents in thick timber with effectively one way out; the town has been working toward a second evacuation route. Click each pin for the specifics.</p>
+
+  <h3 style="font-family:'Fraunces',serif;font-weight:600;font-size:23px;margin:34px 0 6px">Nederland-area neighborhoods, ranked</h3>
+  <p class="lead">My ordering for the immediate Nederland area. Confidence reflects how sure I am the area belongs at the top of the list, given the data.</p>
+  <div class="cards" id="cards-ned"></div>
+</div></section>
+
+<section id="regional"><div class="wrap">
+  <div class="sec-head"><span class="sec-num">04</span><h2>The regional picture</h2></div>
+  <p class="lead">Zoom out and the same logic scales across the Front Range: forested foothills and canyons carry the wildfire load; creek confluences and burn-scar watersheds carry the flood load. This map plots every ranked area in this briefing over the live hazard layers. Use the buttons to fly between hotspots.</p>
+  <div class="map-wrap"><div id="map-reg" class="map"></div></div>
+  <div class="flyto" id="flyto-reg"></div>
+  <p class="mapnote"><b>Toggle layers</b> (top-right) to switch the wildfire raster between <i>Risk to Potential Structures</i> and <i>Wildfire Hazard Potential</i>, turn the <i>FEMA flood zones</i> on along the creeks, or enable the optional <i>FEMA National Risk Index</i> tract shading.</p>
+</div></section>
+
+<section id="areas"><div class="wrap">
+  <div class="sec-head"><span class="sec-num">05</span><h2>Highest-exposure areas — Boulder County &amp; beyond</h2><span class="count" id="count"></span></div>
+  <p class="lead">Tap any area to expand for the reasoning, the supporting data points, and a "locate on map" link. Filter by hazard below.</p>
+  <div class="filters">
+    <button class="filt on" data-f="all">All</button>
+    <button class="filt" data-f="wildfire">Wildfire</button>
+    <button class="filt" data-f="flood">Flood</button>
+    <button class="filt" data-f="drought">Drought / Water</button>
+  </div>
+  <div class="cards" id="cards"></div>
+</div></section>
+
+<section id="counties"><div class="wrap">
+  <div class="sec-head"><span class="sec-num">06</span><h2>County exposure, at a glance</h2></div>
+  <p class="lead">A qualitative comparison of relative exposure weight by hazard, synthesized from FEMA's National Risk Index and the disaster record. Bar widths are illustrative emphasis, not precise index scores.</p>
+  <div class="bars" id="bars"></div>
+  <div class="legend">
+    <span><i style="background:var(--fire)"></i>Wildfire</span>
+    <span><i style="background:var(--flood)"></i>Flood</span>
+    <span><i style="background:var(--drought)"></i>Drought / Water</span>
+  </div>
+</div></section>
+
+<section id="method"><div class="wrap">
+  <div class="sec-head"><span class="sec-num">07</span><h2>How this ranking was derived</h2></div>
+  <p class="lead">A data-anchored research synthesis — real federal/state hazard datasets, read together and ordered by judgment, rather than a single engineered score.</p>
+  <div class="method">
+    <div class="step"><div class="k">01</div><p><b>Hazard intensity from the source rasters.</b> Wildfire weight comes from USFS <i>Wildfire Risk to Communities</i> — chiefly <i>Risk to Potential Structures</i> and <i>Wildfire Hazard Potential</i> (30 m, 2024 vintage). These are the same layers shaded on the maps, so what you see is what drove the call.</p></div>
+    <div class="step"><div class="k">02</div><p><b>Flood weight from regulated zones + history.</b> FEMA's <i>National Flood Hazard Layer</i> for the regulatory floodplain, cross-checked against the 2013 flood after-action record and active Colorado Hazard Mapping re-studies (e.g. Lefthand Creek).</p></div>
+    <div class="step"><div class="k">03</div><p><b>Cross-hazard context from FEMA NRI.</b> The <i>National Risk Index</i> (county + census-tract) anchors relative risk and expected annual loss; it resolves to tract, not parcel, so it sets the baseline rather than the final order.</p></div>
+    <div class="step"><div class="k">04</div><p><b>Local plans break the ties.</b> Boulder County's CWPP / fireshed work, municipal WUI ember-cast mapping, the Headwaters CPAW assessment for Nederland, and disaster after-action reports supply the neighborhood-level detail — egress, fuels, structure density — that coarse national data can't.</p></div>
+    <div class="step"><div class="k">05</div><p><b>Drought as a multiplier.</b> U.S. Drought Monitor, CWCB, and Western Water Assessment conditions weight current susceptibility — dry fuels and low snowpack push otherwise-moderate areas up.</p></div>
+  </div>
+  <h3 style="font-family:'Fraunces',serif;font-weight:600;font-size:21px;margin:30px 0 10px">What this can and can't tell you</h3>
+  <ul class="limit-list">
+    <li><b>Granularity gap, narrowed not closed.</b> National datasets resolve to tract; neighborhood pins come from local plans and disaster reports, then matched to the raster. The order is reasoned, not modeled at parcel scale.</li>
+    <li><b>Boundaries are approximate.</b> Neighborhood pins and historic fire perimeters are hand-placed for orientation. For a regulated answer, click through to the live services.</li>
+    <li><b>Wildfire is no longer just "the mountains."</b> The 2021 Marshall Fire — Colorado's most destructive — was a wind-driven <i>grassfire</i> in suburban Superior and Louisville. Flat, grassy edges are real WUI.</li>
+    <li><b>For a parcel-level answer, go to the source tools in §08</b> — especially CO-WRAP / the Colorado Wildfire Risk Viewer (address-level fire intensity) and Boulder County's floodplain web map.</li>
+    <li><b>Not insurance, lending, or safety advice.</b> Use this to orient, then verify with official maps and local emergency management before any decision.</li>
+  </ul>
+</div></section>
+
+<section id="sources"><div class="wrap">
+  <div class="sec-head"><span class="sec-num">08</span><h2>Government &amp; primary sources</h2></div>
+  <div class="sources">
+    <a href="https://hazards.fema.gov/nri/map" target="_blank">FEMA National Risk Index — interactive map<span>hazards.fema.gov/nri</span></a>
+    <a href="https://www.fema.gov/about/openfema/data-sets/national-risk-index-data" target="_blank">FEMA NRI — county &amp; tract data downloads<span>fema.gov/openfema</span></a>
+    <a href="https://resilience-fema.hub.arcgis.com/datasets/FEMA::national-risk-index-census-tracts/explore" target="_blank">FEMA NRI — Census Tracts feature layer<span>resilience-fema.hub.arcgis.com</span></a>
+    <a href="https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer" target="_blank">FEMA National Flood Hazard Layer (NFHL) — REST service<span>hazards.fema.gov/arcgis · live map layer</span></a>
+    <a href="https://apps.fs.usda.gov/fsgisx01/rest/services/RDW_Wildfire/RMRS_WRC_ConditionalRiskToPotentialStructures/ImageServer" target="_blank">USFS WRC — Risk to Potential Structures (ImageServer)<span>apps.fs.usda.gov · live raster</span></a>
+    <a href="https://apps.fs.usda.gov/fsgisx01/rest/services/RDW_Wildfire/RMRS_WRC_WildfireHazardPotential/ImageServer" target="_blank">USFS WRC — Wildfire Hazard Potential (ImageServer)<span>apps.fs.usda.gov · live raster</span></a>
+    <a href="https://co-pub.coloradoforestatlas.org/" target="_blank">Colorado Wildfire Risk Viewer (CO-WRAP)<span>coloradoforestatlas.org</span></a>
+    <a href="https://boulder-county-cwpp-bouldercounty.hub.arcgis.com/" target="_blank">Boulder County Community Wildfire Protection Plan<span>boulder-county-cwpp.hub.arcgis.com</span></a>
+    <a href="https://bouldercounty.gov/property-and-land/forest-health/fireshed/" target="_blank">Boulder County Fireshed program<span>bouldercounty.gov</span></a>
+    <a href="https://cpaw.headwaterseconomics.org/project/nederland-colorado/" target="_blank">Headwaters CPAW — Nederland wildfire recommendations<span>cpaw.headwaterseconomics.org</span></a>
+    <a href="https://bouldercolorado.gov/wildfire-resilient-landscapes-guide" target="_blank">City of Boulder — WUI ember-cast risk mapping<span>bouldercolorado.gov</span></a>
+    <a href="https://bouldercounty.gov/transportation/floodplain-mapping/" target="_blank">Boulder County floodplain remapping &amp; FEMA zones<span>bouldercounty.gov</span></a>
+    <a href="https://www.drought.gov/states/colorado/county/boulder" target="_blank">Drought.gov — Boulder County conditions<span>drought.gov</span></a>
+    <a href="https://droughtmonitor.unl.edu/CurrentMap/StateDroughtMonitor.aspx?CO" target="_blank">U.S. Drought Monitor — Colorado<span>droughtmonitor.unl.edu</span></a>
+    <a href="https://cwcb.colorado.gov/drought" target="_blank">CO Water Conservation Board — Drought Response<span>cwcb.colorado.gov</span></a>
+    <a href="https://wwa.colorado.edu/resources/intermountain-west-dashboard" target="_blank">Western Water Assessment — snowpack &amp; water<span>wwa.colorado.edu</span></a>
+    <a href="https://www.climate.gov/news-features/event-tracker/historic-rainfall-and-floods-colorado" target="_blank">NOAA Climate.gov — 2013 flood record<span>climate.gov</span></a>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <b>Method, briefly.</b> Live government hazard services (USFS Wildfire Risk to Communities, FEMA National Flood Hazard Layer, FEMA National Risk Index, Esri World Imagery) are streamed directly into the maps; the ranking and labelled neighborhoods are a reasoned synthesis layered over that data, informed by Boulder County's CWPP/fireshed work, the Headwaters CPAW Nederland assessment, municipal WUI mapping, and the 2013-flood / 2016 Cold Springs / 2021 Marshall disaster record. Drought figures are current as of late May 2026. Neighborhood pins and fire perimeters are approximate. Confidence bars are my own honest calibration, not a published metric. Verify against the official tools before acting.
+</div></footer>
+
+<script>
+/* ----------------------------------------------------------------------------
+   DATA — each area carries a map coordinate, hazard tags, a reasoning blurb,
+   supporting data points, a confidence read, and source attribution.
+   coords are [lat, lng]. Pins/perimeters are approximate, for orientation.
+---------------------------------------------------------------------------- */
+const DATA=[
+ /* ---------- NEDERLAND AREA ---------- */
+ {region:"ned",name:"Big Springs",county:"Nederland · Boulder County",level:"extreme",
+  coords:[39.9515,-105.4925],hazards:["wildfire"],conf:87,
+  text:"≈200 residents on the southeast edge of Nederland, between Magnolia Road and Barker Meadow Reservoir, in thick continuous timber on steep ground. Its defining risk is access: effectively one way out, with no eastern exit — the town has been actively pursuing a second emergency evacuation route. High structure density inside heavy fuels plus a congested egress is the highest-consequence pattern in the area.",
+  data:[["Egress","Single access"],["Fuels","Dense lodgepole"],["Pop.","~200"],["USFS RPS","High–Very High"]],
+  src:"Headwaters CPAW (Nederland) · Town of Nederland · USFS WRC"},
+
+ {region:"ned",name:"Magnolia Road corridor",county:"Nederland · Boulder County",level:"extreme",
+  coords:[39.9305,-105.4480],hazards:["wildfire"],conf:85,
+  text:"The dispersed homes strung along Magnolia Road and its spurs sit in dense forest on steep, dissected terrain with long, narrow, dead-end driveways — classic intermix where fire behavior and slow egress compound. Repeatedly flagged in evacuation-planning discussions; was inside the Cold Springs evacuation footprint in 2016 (Boulder Canyon west of Magnolia).",
+  data:[["Egress","Long dead-ends"],["Slope","Steep / dissected"],["2016","Evac zone"],["USFS RPS","High–Very High"]],
+  src:"Boulder County CWPP · Cold Springs AAR · USFS WRC"},
+
+ {region:"ned",name:"Cold Springs / Sherwood / Aspen Meadows",county:"Nederland · Boulder County",level:"extreme",
+  coords:[39.9725,-105.4960],hazards:["wildfire"],conf:84,
+  text:"The 2016 Cold Springs Fire footprint east of the Peak-to-Peak: ≈528 acres, 8 homes lost, 18 structures damaged, ~2,000 people evacuated, sparked by an unextinguished campfire. The neighborhoods that burned or were directly threatened — Sherwood, Aspen Meadows, Whispering Pines, St. Anton, Sky View — remain forested WUI; a recent burn scar lowers but does not remove the hazard, and surrounding intact fuels keep it high.",
+  data:[["2016 fire","~528 ac"],["Homes lost","8"],["Evacuated","~2,000"],["Cause","Campfire"]],
+  src:"Boulder County (Cold Springs case study) · DHSEM AAR"},
+
+ {region:"ned",name:"Eldora townsite & Eldora Mtn",county:"Nederland · Boulder County",level:"high",
+  coords:[39.9375,-105.5805],hazards:["wildfire"],conf:80,
+  text:"The historic Eldora townsite and the homes along the Eldora Road / ski-area approach sit at the end of a forested canyon west of Nederland — high fuel loading, single primary road in and out, and a seasonal traffic surge that worsens evacuation timing. Intact conifer right to the structures.",
+  data:[["Egress","Dead-end canyon"],["Fuels","Heavy conifer"],["Elev.","~8,700 ft"],["USFS RPS","High"]],
+  src:"Boulder County CWPP · USFS WRC"},
+
+ {region:"ned",name:"Coal Creek Canyon (Hwy 72)",county:"Nederland · Gilpin/Boulder",level:"high",
+  coords:[39.9040,-105.4010],hazards:["wildfire"],conf:80,
+  text:"The Hwy 72 corridor southeast of Nederland threads dense exurban homes through a narrow forested canyon spanning the Boulder–Gilpin line. Continuous fuels, steep side-drainages, and a constrained canyon road give it both extreme fire-spread potential and a hard egress problem for a large dispersed population.",
+  data:[["Egress","Canyon road"],["Fuels","Continuous forest"],["Spans","Boulder/Gilpin"],["USFS RPS","High–Very High"]],
+  src:"Boulder County CWPP · Gilpin / CSFS data"},
+
+ {region:"ned",name:"Sundance / Ridge Road (north Ned)",county:"Nederland · Boulder County",level:"high",
+  coords:[39.9855,-105.5020],hazards:["wildfire"],conf:74,
+  text:"Subdivisions north of town along the Peak-to-Peak / Ridge Road sit in forested intermix with limited connectivity to the highway. Solidly in the high-hazard USFS band; placed a notch below the extreme tier mainly on somewhat better egress than Big Springs or Magnolia.",
+  data:[["Egress","Limited"],["Fuels","Forested intermix"],["Access","Peak-to-Peak"],["USFS RPS","High"]],
+  src:"Boulder County CWPP · USFS WRC"},
+
+ /* ---------- WIDER BOULDER COUNTY ---------- */
+ {region:"boulder",name:"Western foothills & canyons",county:"Boulder County",level:"extreme",
+  coords:[40.0400,-105.4050],hazards:["wildfire"],conf:85,
+  text:"Sugarloaf, Sunshine, Fourmile, Boulder Canyon, Magnolia, Gold Hill and Eldorado Springs — dense wildland-urban interface and intermix where homes sit inside continuous forest fuels. Boulder County's wildfire planning flags western Boulder County as the area of heightened vulnerability; the county is among the USFS Rocky Mountain Region's most fire-exposed.",
+  data:[["Since 1989","1,346 structures lost"],["Acres burned","~32,000"],["Pattern","Forest intermix"],["USFS RPS","Very High"]],
+  src:"Boulder County CWPP · USFS RMRS · CSFS"},
+
+ {region:"boulder",name:"Lyons (St. Vrain confluence)",county:"Boulder County",level:"extreme",
+  coords:[40.2240,-105.2710],hazards:["flood","drought"],conf:88,
+  text:"Sits where the North and South St. Vrain creeks merge at the base of two canyons — terrain that funnels and concentrates floodwater. In 2013 the canyons channeled a 1,000-year-class rain event through town, carving it into 'six islands' and wiping out the Confluence neighborhood's trailer parks. One of the single hardest-hit communities in the state.",
+  data:[["2013 event","~1,000-yr rain"],["Damage","Town split to '6 islands'"],["Setting","Twin-canyon confluence"],["FEMA","Regulated floodway"]],
+  src:"NOAA Climate.gov · CO 2013 Flood AAR · FEMA NFHL"},
+
+ {region:"boulder",name:"Jamestown",county:"Boulder County",level:"extreme",
+  coords:[40.1160,-105.3890],hazards:["flood","wildfire"],conf:82,
+  text:"Tiny foothill town largely destroyed and cut off in the 2013 flood (a fatality occurred here). Steep tributary drainages above town drive flash-flood and debris-flow risk, and the surrounding forested WUI adds wildfire exposure — a true compound-hazard community.",
+  data:[["2013","Largely destroyed"],["Hazard","Debris flow"],["WUI","Forested"],["Access","Single canyon"]],
+  src:"CO 2013 Flood AAR (DHSEM) · USFS WRC"},
+
+ {region:"boulder",name:"Superior & Louisville (Marshall)",county:"Boulder County",level:"high",
+  coords:[39.9490,-105.1650],hazards:["wildfire","drought"],conf:81,
+  text:"Ground zero for the Dec 2021 Marshall Fire — a wind-driven grassfire, Colorado's most destructive ever, that burned through suburban subdivisions once thought safe. The lesson now baked into local code: dry grassland edges plus hurricane-force downslope winds are a Marshall-style ignition recipe, not just a mountain problem.",
+  data:[["2021 fire","~1,000+ homes"],["Type","Grassfire / WUI"],["Driver","Downslope wind"],["Status","Most destructive in CO"]],
+  src:"CPR · Boulder County CWPP · City of Boulder WUI"},
+
+ {region:"boulder",name:"City of Boulder (west edge)",county:"Boulder County",level:"high",
+  coords:[40.0050,-105.2920],hazards:["wildfire","flood"],conf:78,
+  text:"The 2022 NCAR Fire and updated ember-cast modeling pushed the city's higher-risk WUI count from ~4,600 homes to more than 16,000. Separately, Boulder Creek and South Boulder Creek give the city — including parts of the CU campus — significant flash-flood exposure; sirens were used during the 2013 event.",
+  data:[["WUI homes","~4,600 → 16,000+"],["Trigger","NCAR Fire + ember model"],["Flood","Boulder / S. Boulder Creek"],["2013","Sirens used"]],
+  src:"City of Boulder WUI guide · NWS Boulder"},
+
+ {region:"boulder",name:"Longmont (St. Vrain corridor)",county:"Boulder County",level:"high",
+  coords:[40.1670,-105.1010],hazards:["flood","drought"],conf:80,
+  text:"The St. Vrain Creek runs through town and delivered some of the most significant 2013 flooding downstream of Lyons, where canyon rain was funneled into the valley. Lower-lying neighborhoods along the creek remain the primary flood-exposure zones.",
+  data:[["2013","Major valley flooding"],["Source","St. Vrain Creek"],["Exposure","Creekside neighborhoods"],["FEMA","Mapped floodplain"]],
+  src:"BoulderCAST · CO 2013 Flood AAR · FEMA NFHL"},
+
+ {region:"boulder",name:"Lefthand Creek corridor",county:"Boulder County",level:"high",
+  coords:[40.1300,-105.2800],hazards:["flood"],conf:72,
+  text:"An active FEMA / Colorado Hazard Mapping Program re-study area: draft flood-risk zones along Lefthand Creek are reshaping the regulated floodplain in unincorporated Boulder County. Flagged because the official maps here are still being revised upward.",
+  data:[["Status","Active re-study"],["Effect","Floodplain expanding"],["Area","Unincorporated"],["FEMA","Draft zones"]],
+  src:"Boulder County Floodplain Mapping · CHAMP"},
+
+ /* ---------- SURROUNDING COUNTIES ---------- */
+ {region:"surrounding",name:"Gilpin County foothills",county:"Gilpin County",level:"extreme",
+  coords:[39.8600,-105.5000],hazards:["wildfire"],conf:83,
+  text:"Reporting on state forestry data found Gilpin had the highest share of vulnerable homes in the region — on the order of ~95% of dwellings facing extreme fire danger. Small population, but proportionally the most fire-exposed housing on the northern Front Range.",
+  data:[["Homes at extreme risk","~95%"],["Rank","Highest share in region"],["Terrain","Forested foothills"],["Source","CSFS data"]],
+  src:"CPR (Colorado State Forest Service data)"},
+
+ {region:"surrounding",name:"Jefferson County foothills",county:"Jefferson County",level:"high",
+  coords:[39.6800,-105.3200],hazards:["wildfire"],conf:80,
+  text:"Conifer, Evergreen, Coal Creek Canyon and similar foothill communities. State data cited Jefferson as holding the largest absolute number of dwellings in extreme fire danger — a function of dense exurban development pushed into forested terrain.",
+  data:[["Dwellings at extreme risk","Most (abs.)"],["Communities","Conifer / Evergreen"],["Pattern","Exurban forest"],["Source","CSFS data"]],
+  src:"CPR (Colorado State Forest Service data)"},
+
+ {region:"surrounding",name:"Estes Park & Big Thompson Canyon",county:"Larimer County",level:"high",
+  coords:[40.3770,-105.5210],hazards:["flood","wildfire"],conf:80,
+  text:"Hard hit in 2013 (US-34 through the Big Thompson was partially destroyed) and the canyon has a deadly flash-flood history. Compounding risk: the 2020 Cameron Peak and East Troublesome burn scars upstream raise debris-flow and flash-flood potential for years after the fires.",
+  data:[["1976 + 2013","Deadly canyon floods"],["US-34","Partially destroyed"],["Upstream","Cameron Peak scar"],["Hazard","Debris flow"]],
+  src:"CO Encyclopedia · NOAA · DHSEM AAR"},
+
+ {region:"surrounding",name:"Fort Collins / Loveland foothills",county:"Larimer County",level:"high",
+  coords:[40.4500,-105.1800],hazards:["wildfire","drought"],conf:75,
+  text:"FEMA's NRI places the foothills west of Loveland and Fort Collins above the state average and around the 90th national percentile, driven by wildfire and landslide risk. The Cameron Peak burn scar (largest in state history) sits in this watershed.",
+  data:[["FEMA NRI","~90th pctl"],["Drivers","Wildfire + landslide"],["Scar","Cameron Peak (largest)"],["Trend","Above state avg"]],
+  src:"FEMA NRI · regional reporting"},
+
+ {region:"surrounding",name:"Evans / Greeley (South Platte)",county:"Weld County",level:"high",
+  coords:[40.3780,-104.7000],hazards:["flood","drought"],conf:74,
+  text:"Evans was among the hardest-hit 2013 flood communities as the South Platte and its tributaries overflowed. Weld's broader profile adds heavy agricultural-drought stress and dependence on the South Platte alluvial aquifer for irrigation and wells.",
+  data:[["2013","Among hardest hit"],["River","South Platte"],["Stress","Ag drought"],["Water","Alluvial aquifer"]],
+  src:"DHSEM 2013 AAR · Drought.gov · FEMA NFHL"},
+
+ {region:"surrounding",name:"Eastern Weld agricultural plains",county:"Weld County",level:"elevated",
+  coords:[40.4000,-104.3000],hazards:["drought"],conf:70,
+  text:"Irrigated cropland heavily reliant on surface water and the South Platte alluvial aquifer. With ~94% of the state in active drought and snowpack near 18% of median, groundwater and reservoir drawdown is the dominant 2026 stressor here; also high hail/tornado exposure.",
+  data:[["State drought","~94%"],["Snowpack","~18% median"],["Stressor","Aquifer drawdown"],["Also","Hail / tornado"]],
+  src:"U.S. Drought Monitor · WWA · CWCB"},
+
+ {region:"surrounding",name:"Broomfield (Coal/Rock Creek edge)",county:"Broomfield",level:"elevated",
+  coords:[39.9300,-105.1000],hazards:["wildfire","flood"],conf:68,
+  text:"On the Marshall Fire's doorstep — the same grassland-WUI and wind setup that hit neighboring Superior/Louisville applies along open-space edges. Coal Creek and Rock Creek add localized flood exposure for adjacent neighborhoods.",
+  data:[["Adjacent","Marshall Fire zone"],["Setup","Grass-WUI + wind"],["Flood","Coal / Rock Creek"],["Exposure","Open-space edges"]],
+  src:"Boulder County CWPP · CPR"},
+
+ {region:"surrounding",name:"Southern Adams County",county:"Adams County",level:"elevated",
+  coords:[39.8500,-104.9000],hazards:["flood","drought"],conf:62,
+  text:"Included in the 2013 federal disaster declaration. Lower-relief South Platte-basin flooding, hail and severe-wind exposure, plus agricultural drought stress on the eastern side. Lower confidence here — the documented hazard signal is real but less acute than the foothill and canyon communities.",
+  data:[["2013","Disaster declared"],["Flood","South Platte basin"],["Also","Hail / severe wind"],["East","Ag drought"]],
+  src:"DHSEM 2013 AAR · FEMA NRI"}
+];
+
+const COUNTIES=[
+ {n:"Boulder",note:"fire + flood + drought",seg:[["wildfire",38],["flood",34],["drought",16]]},
+ {n:"Larimer",note:"foothill fire + canyon flood",seg:[["wildfire",36],["flood",30],["drought",16]]},
+ {n:"Gilpin",note:"highest % fire-exposed homes",seg:[["wildfire",46],["flood",6],["drought",14]]},
+ {n:"Jefferson",note:"most homes in extreme fire",seg:[["wildfire",42],["flood",10],["drought",14]]},
+ {n:"Weld",note:"ag drought + S. Platte flood",seg:[["wildfire",8],["flood",26],["drought",36]]},
+ {n:"Broomfield",note:"grassfire + creek flood",seg:[["wildfire",26],["flood",18],["drought",14]]},
+ {n:"Adams",note:"plains flood + drought",seg:[["wildfire",6],["flood",22],["drought",26]]}
+];
+
+/* Approximate historic fire perimeters (hand-drawn, for orientation only) */
+const COLD_SPRINGS_2016=[[39.9690,-105.5060],[39.9760,-105.5010],[39.9785,-105.4925],[39.9740,-105.4870],[39.9670,-105.4895],[39.9645,-105.4975]];
+const MARSHALL_2021=[[39.9620,-105.2000],[39.9700,-105.1700],[39.9850,-105.1500],[39.9820,-105.1250],[39.9650,-105.1300],[39.9500,-105.1650],[39.9520,-105.1900]];
+
+/* ----------------------------------------------------------------------------
+   MAP LAYER FACTORIES — live government services, rendered in the browser.
+   tiledMapLayer (Esri imagery), imageMapLayer (USFS rasters), dynamicMapLayer
+   (FEMA NFHL), featureLayer (FEMA NRI tracts, optional).
+---------------------------------------------------------------------------- */
+const LEVEL_COLOR={extreme:"#ff5c4d",high:"#ff8a42",elevated:"#d4a93f"};
+
+function imagery(){return L.esri.tiledMapLayer({
+  url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+  maxZoom:19, attribution:"Imagery © Esri, Maxar, USDA FSA, USGS"});}
+
+function refLabels(){return L.esri.tiledMapLayer({
+  url:"https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer",
+  maxZoom:19, pane:"shadowPane"});}
+
+function wildfireRPS(){return L.esri.imageMapLayer({
+  url:"https://apps.fs.usda.gov/fsgisx01/rest/services/RDW_Wildfire/RMRS_WRC_ConditionalRiskToPotentialStructures/ImageServer",
+  opacity:0.62, attribution:"USFS Wildfire Risk to Communities — Risk to Potential Structures"});}
+
+function wildfireWHP(){return L.esri.imageMapLayer({
+  url:"https://apps.fs.usda.gov/fsgisx01/rest/services/RDW_Wildfire/RMRS_WRC_WildfireHazardPotential/ImageServer",
+  opacity:0.62, attribution:"USFS Wildfire Risk to Communities — Wildfire Hazard Potential"});}
+
+function femaFlood(){return L.esri.dynamicMapLayer({
+  url:"https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer",
+  opacity:0.55, layers:[28], attribution:"FEMA National Flood Hazard Layer"});}
+
+function femaNRI(){return L.esri.featureLayer({
+  url:"https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/National_Risk_Index_Census_Tracts/FeatureServer/0",
+  simplifyFactor:0.5, precision:5,
+  style:function(f){
+    var r=(f.properties&&(f.properties.RISK_RATNG||f.properties.RISK_RATING))||"";
+    var c="#6a6055";
+    if(/Very High/i.test(r))c="#ff5c4d"; else if(/Relatively High/i.test(r))c="#ff8a42";
+    else if(/Moderate/i.test(r))c="#d4a93f"; else if(/Relatively Low/i.test(r))c="#6fb6dc";
+    return {color:c,weight:0.6,fillOpacity:0.28,fillColor:c};
+  },
+  attribution:"FEMA National Risk Index — Census Tracts"});}
+
+/* perimeter + marker helpers */
+function perimeter(coords,label){
+  return L.polygon(coords,{color:"#ff8a42",weight:1.5,dashArray:"5,4",
+    fillColor:"#ff8a42",fillOpacity:0.12}).bindPopup(
+    '<div class="pc">approx. historic perimeter</div><h4>'+label+'</h4>');
+}
+
+function areaMarker(d){
+  var m=L.circleMarker(d.coords,{radius:8,color:"#14110f",weight:2,
+    fillColor:LEVEL_COLOR[d.level]||"#9c9080",fillOpacity:0.95});
+  m.bindPopup('<div class="pc">'+d.county+' · '+d.level+'</div><h4>'+d.name+
+    '</h4><p class="pp">'+d.text+'</p>');
+  m._area=d;
+  return m;
+}
+
+/* ----------------------------------------------------------------------------
+   BUILD MAPS
+---------------------------------------------------------------------------- */
+function buildMap(id,center,zoom,wildfireOn,floodOn){
+  var map=L.map(id,{scrollWheelZoom:false,center:center,zoom:zoom});
+  imagery().addTo(map);
+  refLabels().addTo(map);
+
+  var rps=wildfireRPS(), whp=wildfireWHP(), flood=femaFlood(), nri=femaNRI();
+  if(wildfireOn) rps.addTo(map);
+  if(floodOn) flood.addTo(map);
+
+  var overlays={
+    "Wildfire · Risk to Structures (USFS)":rps,
+    "Wildfire · Hazard Potential (USFS)":whp,
+    "Flood zones · FEMA NFHL":flood,
+    "Risk Index tracts · FEMA NRI (optional)":nri
+  };
+  L.control.layers(null,overlays,{collapsed:true,position:"topright"}).addTo(map);
+  return map;
+}
+
+/* Nederland deep-dive map */
+var ned=buildMap("map-ned",[39.955,-105.49],12,true,false);
+perimeter(COLD_SPRINGS_2016,"Cold Springs Fire (2016) — ≈528 ac").addTo(ned);
+var nedMarkers={};
+DATA.filter(d=>d.region==="ned").forEach(function(d){
+  var m=areaMarker(d).addTo(ned); nedMarkers[d.name]=m;
+});
+
+/* Regional map */
+var reg=buildMap("map-reg",[40.05,-105.35],10,true,false);
+perimeter(COLD_SPRINGS_2016,"Cold Springs Fire (2016)").addTo(reg);
+perimeter(MARSHALL_2021,"Marshall Fire (2021) — most destructive in CO").addTo(reg);
+var regMarkers={};
+DATA.forEach(function(d){ var m=areaMarker(d).addTo(reg); regMarkers[d.name]=m; });
+
+/* fly-to controls */
+function buildFlyto(containerId,map,markers,areas){
+  var box=document.getElementById(containerId);
+  areas.forEach(function(a){
+    var b=document.createElement("button");
+    b.textContent=a.label;
+    b.addEventListener("click",function(){
+      map.flyTo(a.coords,a.zoom||13,{duration:1.1});
+      var mk=markers[a.open]; if(mk) setTimeout(function(){mk.openPopup();},900);
+    });
+    box.appendChild(b);
+  });
+}
+buildFlyto("flyto-ned",ned,nedMarkers,[
+  {label:"Big Springs",coords:[39.9515,-105.4925],zoom:14,open:"Big Springs"},
+  {label:"Magnolia Rd",coords:[39.9305,-105.4480],zoom:13,open:"Magnolia Road corridor"},
+  {label:"Cold Springs (2016)",coords:[39.9725,-105.4960],zoom:14,open:"Cold Springs / Sherwood / Aspen Meadows"},
+  {label:"Eldora",coords:[39.9375,-105.5805],zoom:13,open:"Eldora townsite & Eldora Mtn"},
+  {label:"Coal Creek Canyon",coords:[39.9040,-105.4010],zoom:13,open:"Coal Creek Canyon (Hwy 72)"},
+  {label:"Reset",coords:[39.955,-105.49],zoom:12}
+]);
+buildFlyto("flyto-reg",reg,regMarkers,[
+  {label:"Nederland WUI",coords:[39.955,-105.49],zoom:12,open:"Western foothills & canyons"},
+  {label:"Boulder foothills",coords:[40.02,-105.34],zoom:12,open:"Western foothills & canyons"},
+  {label:"Marshall / Superior",coords:[39.955,-105.165],zoom:13,open:"Superior & Louisville (Marshall)"},
+  {label:"Lyons / St. Vrain",coords:[40.224,-105.271],zoom:13,open:"Lyons (St. Vrain confluence)"},
+  {label:"Estes / Big Thompson",coords:[40.377,-105.521],zoom:11,open:"Estes Park & Big Thompson Canyon"},
+  {label:"Gilpin",coords:[39.86,-105.50],zoom:12,open:"Gilpin County foothills"},
+  {label:"Reset",coords:[40.05,-105.35],zoom:10}
+]);
+
+/* ----------------------------------------------------------------------------
+   CARDS
+---------------------------------------------------------------------------- */
+function cardHTML(d,rank){
+  return '<div class="top"><div>'+(rank?'<div class="rank">#'+rank+'</div>':'')+
+    '<h3>'+d.name+'</h3><div class="county">'+d.county+'</div></div>'+
+    '<span class="sev '+d.level+'">'+d.level+'</span></div>'+
+    '<div class="chips">'+d.hazards.map(h=>'<span class="chip '+h+'">'+(h==='drought'?'drought / water':h)+'</span>').join('')+'</div>'+
+    '<div class="expand-hint">+ tap to expand</div>'+
+    '<div class="body"><p>'+d.text+'</p>'+
+    (d.data?'<div class="data">'+d.data.map(x=>'<div><b>'+x[1]+'</b>'+x[0]+'</div>').join('')+'</div>':'')+
+    '<div class="conf"><div class="conf-bar"><i style="width:'+d.conf+'%"></i></div>'+
+    '<span class="conf-lbl">confidence '+d.conf+'%</span></div>'+
+    '<div class="src">SOURCE: '+d.src+'</div>'+
+    '<span class="locate" data-name="'+d.name+'">▸ locate on regional map</span></div>';
+}
+
+function wireCard(card,d){
+  card.addEventListener("click",function(e){
+    if(e.target.classList.contains("locate")) return;
+    card.classList.toggle("open");
+  });
+  var loc=card.querySelector(".locate");
+  if(loc) loc.addEventListener("click",function(e){
+    e.stopPropagation();
+    document.getElementById("regional").scrollIntoView({behavior:"smooth"});
+    reg.flyTo(d.coords,13,{duration:1.1});
+    var mk=regMarkers[d.name]; if(mk) setTimeout(function(){mk.openPopup();},1000);
+  });
+}
+
+/* Nederland ranked cards (ordered by confidence, extreme first) */
+(function(){
+  var el=document.getElementById("cards-ned");
+  var list=DATA.filter(d=>d.region==="ned");
+  var order={extreme:0,high:1,elevated:2};
+  list.sort((a,b)=> order[a.level]-order[b.level] || b.conf-a.conf);
+  list.forEach(function(d,i){
+    var card=document.createElement("div");
+    card.className="card lv-"+d.level;
+    card.innerHTML=cardHTML(d,i+1);
+    wireCard(card,d);
+    el.appendChild(card);
+  });
+})();
+
+/* Boulder county + surrounding cards, with hazard filter */
+const cardsEl=document.getElementById("cards");
+const countEl=document.getElementById("count");
+function render(filter){
+  cardsEl.innerHTML="";
+  var list=DATA.filter(d=>d.region!=="ned").filter(d=>filter==="all"||d.hazards.includes(filter));
+  countEl.textContent=list.length+" AREAS";
+  list.forEach(function(d){
+    var card=document.createElement("div");
+    card.className="card lv-"+d.level;
+    card.innerHTML=cardHTML(d,null);
+    wireCard(card,d);
+    cardsEl.appendChild(card);
+  });
+}
+render("all");
+document.querySelectorAll(".filt").forEach(function(b){
+  b.addEventListener("click",function(){
+    document.querySelectorAll(".filt").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    render(b.dataset.f);
+  });
+});
+
+/* County bars */
+var barsEl=document.getElementById("bars");
+COUNTIES.forEach(function(c){
+  var row=document.createElement("div");
+  row.className="bar-row";
+  row.innerHTML='<div class="name">'+c.n+'<span>'+c.note+'</span></div>'+
+    '<div class="bar-track">'+c.seg.map(s=>'<i class="seg '+s[0]+'" style="width:'+s[1]+'%">'+(s[1]>14?s[0]:'')+'</i>').join('')+'</div>';
+  barsEl.appendChild(row);
+});
+
+/* enable scroll-zoom only after a click, so the page scrolls past maps freely */
+[ned,reg].forEach(function(m){
+  m.on("click",function(){ m.scrollWheelZoom.enable(); });
+  m.on("mouseout",function(){ m.scrollWheelZoom.disable(); });
+});
+</script>
+</body>
+</html>
